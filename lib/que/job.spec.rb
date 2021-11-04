@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'spec_helper'
+require_relative '../../spec/spec_helper'
 
 describe Que::Job do
   let(:notified_errors) { [] }
@@ -56,7 +56,7 @@ describe Que::Job do
           assert_equal([{a: 1, b: 2}], $args)
         end
 
-        it "should handle keyword arguments just fine" do
+        it "kwargs" do
           TestJobClass.class_eval do
             def run(a:, b: 4, c: 3)
               $args = [a, b, c]
@@ -346,8 +346,8 @@ describe Que::Job do
 
     let(:should_persist_job) { false }
 
-    def execute(*args)
-      TestJobClass.run(*args)
+    def execute(*args, **kwargs)
+      TestJobClass.run(*args, **kwargs)
     end
   end
 
@@ -357,9 +357,9 @@ describe Que::Job do
 
     let(:should_persist_job) { false }
 
-    def execute(*args)
+    def execute(*args, **kwargs)
       TestJobClass.run_synchronously = true
-      TestJobClass.enqueue(*args)
+      TestJobClass.enqueue(*args, **kwargs)
     end
   end
 
@@ -368,10 +368,10 @@ describe Que::Job do
 
     let(:should_persist_job) { true }
 
-    def execute(*args)
+    def execute(*args, **kwargs)
       worker # Make sure worker is initialized.
 
-      job = TestJobClass.enqueue(*args)
+      job = TestJobClass.enqueue(*args, **kwargs)
       attrs = job.que_attrs
 
       job_buffer.push(Que::Metajob.new(attrs))
@@ -380,6 +380,7 @@ describe Que::Job do
 
       if m = jobs_dataset.where(id: job.que_attrs[:id]).get(:last_error_message)
         klass, message = m.split(": ", 2)
+        p message
         raise Que.constantize(klass), message
       end
 
@@ -434,10 +435,10 @@ describe Que::Job do
         Object.send :remove_const, :ApplicationJob
       end
 
-      def execute(*args)
+      def execute(*args, **kwargs)
         worker # Make sure worker is initialized.
 
-        TestJobClass.perform_later(*args)
+        TestJobClass.perform_later(*args, **kwargs)
 
         assert_equal 1, jobs_dataset.count
         attrs = jobs_dataset.first!
